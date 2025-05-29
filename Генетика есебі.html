@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+    <meta charset="UTF-8">
+    <title>Генетика</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            background: linear-gradient(to bottom right, #c2f0c2, #e0ffe0);
+            padding: 20px;
+        }
+        h1 { color: #006d77; }
+        input[type="text"], textarea { padding: 5px; width: 300px; margin: 5px 0; }
+        button { padding: 10px 15px; background-color: #006d77; color: white; border: none; margin-right: 10px; cursor: pointer; }
+        table { border-collapse: collapse; margin-top: 20px; font-size: 14px; }
+        th, td { border: 1px solid #444; padding: 6px; text-align: center; }
+        .result { margin-top: 25px; }
+        .author {
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="author">
+        Жасағандар: 
+        Елеусинов Ринат - <a href="https://www.instagram.com/ylssnv/" target="_blank">@ylssnv</a>,
+        Сагимов Арман - <a href="https://www.instagram.com/armontino/" target="_blank">@armontino</a>,
+        Стамгалиев Ришат - <a href="https://www.instagram.com/riwat22/" target="_blank">@riwat22</a>
+    </div>
+
+    <h1>Пиннет торы: Толымды және Толымсыз доминанттылық</h1>
+    <label>♀: <input type="text" id="parent1" placeholder="Мысалы: AaBbCcDd" oninput="updateAlleleFields()"></label><br>
+    <label>♂: <input type="text" id="parent2" placeholder="Мысалы: AaBbCcDd" oninput="updateAlleleFields()"></label><br>
+    <label></label><br>
+    <div id="autoAlleles"></div>
+    <button onclick="run('complete')">Толымды доминант</button>
+    <button onclick="run('incomplete')">Толымсыз доминант</button>
+
+    <div class="result" id="result"></div>
+
+    <script>
+        function extractAlleles(genotype) {
+            const alleles = new Set();
+            for (let ch of genotype) alleles.add(ch);
+            return Array.from(alleles);
+        }
+
+        function getHeterozygotes(p1, p2) {
+            const hets = new Set();
+            for (let i = 0; i < p1.length; i += 2) {
+                const a1 = p1[i], a2 = p1[i + 1];
+                if (a1 !== a2) hets.add([a1, a2].sort().join(''));
+            }
+            for (let i = 0; i < p2.length; i += 2) {
+                const a1 = p2[i], a2 = p2[i + 1];
+                if (a1 !== a2) hets.add([a1, a2].sort().join(''));
+            }
+            return Array.from(hets);
+        }
+
+        function updateAlleleFields() {
+            const p1 = document.getElementById('parent1').value.trim();
+            const p2 = document.getElementById('parent2').value.trim();
+            const allSet = new Set((p1 + p2).split(''));
+            const dominant = Array.from(allSet).filter(a => a === a.toUpperCase()).sort();
+            const recessive = Array.from(allSet).filter(a => a === a.toLowerCase()).sort();
+            const hets = getHeterozygotes(p1, p2);
+
+            let html = '<h4>Белгілер:</h4>';
+            dominant.forEach(d => {
+                html += `<div>${d}= <input type="text" id="desc_${d}" placeholder="Мысалы: Сары"></div>`;
+                const r = d.toLowerCase();
+                if (recessive.includes(r)) {
+                    html += `<div>${r}= <input type="text" id="desc_${r}" placeholder="Мысалы: Жасыл"></div>`;
+                }
+                const hetero = [d, r].sort().join('');
+                html += `<div>${hetero}= <input type="text" id="desc_${hetero}" placeholder="Мысалы: Қызғылт"></div>`;
+            });
+
+            document.getElementById('autoAlleles').innerHTML = html;
+        }
+
+        function collectDescriptions() {
+            const inputs = document.querySelectorAll('[id^="desc_"]');
+            const descMap = {};
+            inputs.forEach(input => {
+                const allele = input.id.replace('desc_', '');
+                if (input.value.trim()) {
+                    descMap[allele] = input.value.trim();
+                }
+            });
+            return descMap;
+        }
+
+        function sortAlleles(a, b) {
+            if (a.toUpperCase() !== b.toUpperCase()) return a.localeCompare(b);
+            return a === a.toUpperCase() ? -1 : 1;
+        }
+
+        function groupAlleles(genotype) {
+            const pairs = [];
+            for (let i = 0; i < genotype.length; i += 2) {
+                pairs.push([genotype[i], genotype[i + 1]]);
+            }
+            return pairs;
+        }
+
+        function getGametes(pairs) {
+            let gametes = [''];
+            for (let pair of pairs) {
+                let temp = [];
+                for (let g of gametes) {
+                    for (let allele of pair) {
+                        temp.push(g + allele);
+                    }
+                }
+                gametes = temp;
+            }
+            return gametes;
+        }
+
+        function getGenotype(g1, g2) {
+            let result = '';
+            for (let i = 0; i < g1.length; i++) {
+                let alleles = [g1[i], g2[i]];
+                alleles.sort(sortAlleles);
+                result += alleles.join('');
+            }
+            return result;
+        }
+
+        function getPhenotype(genotype, descMap, mode) {
+            if (mode === 'incomplete' && descMap[genotype]) return descMap[genotype];
+            let result = [];
+            for (let i = 0; i < genotype.length; i += 2) {
+                let g = genotype[i] + genotype[i + 1];
+                let sorted = g.split('').sort().join('');
+                if (mode === 'incomplete' && descMap[sorted]) {
+                    result.push(descMap[sorted]);
+                } else {
+                    let dominant = g[0] === g[0].toUpperCase() ? g[0] : g[1];
+                    result.push(descMap[dominant] || dominant);
+                }
+            }
+            return result.join(', ');
+        }
+
+        function run(mode) {
+            const p1 = document.getElementById('parent1').value.trim();
+            const p2 = document.getElementById('parent2').value.trim();
+            const descMap = collectDescriptions();
+
+            if (p1.length !== p2.length || p1.length % 2 !== 0) {
+                alert('Генотиптер бірдей ұзындықта және жұп болуы керек.');
+                return;
+            }
+
+            const pairs1 = groupAlleles(p1);
+            const pairs2 = groupAlleles(p2);
+            const gametes1 = getGametes(pairs1);
+            const gametes2 = getGametes(pairs2);
+
+            let resultHtml = '<h2>Пиннет торы</h2><table><tr><th></th>';
+            gametes2.forEach(g => resultHtml += `<th>${g}</th>`);
+            resultHtml += '</tr>';
+
+            const genotypes = [];
+            const phenotypes = [];
+
+            for (let g1 of gametes1) {
+                resultHtml += `<tr><th>${g1}</th>`;
+                for (let g2 of gametes2) {
+                    const geno = getGenotype(g1, g2);
+                    const pheno = getPhenotype(geno, descMap, mode);
+                    genotypes.push(geno);
+                    phenotypes.push(pheno);
+                    resultHtml += `<td>${geno}<br>${pheno}</td>`;
+                }
+                resultHtml += '</tr>';
+            }
+            resultHtml += '</table>';
+
+            const genoCount = {};
+            const phenoCount = {};
+            genotypes.forEach(g => genoCount[g] = (genoCount[g] || 0) + 1);
+            phenotypes.forEach(p => phenoCount[p] = (phenoCount[p] || 0) + 1);
+
+            resultHtml += '<h3>Генотип қатынасы:</h3><ul>';
+            for (let [k, v] of Object.entries(genoCount)) {
+                resultHtml += `<li>${k}: ${v}</li>`;
+            }
+            resultHtml += '</ul><h3>Фенотип қатынасы:</h3><ul>';
+            for (let [k, v] of Object.entries(phenoCount)) {
+                resultHtml += `<li>${k}: ${v}</li>`;
+            }
+            resultHtml += '</ul>';
+
+            document.getElementById('result').innerHTML = resultHtml;
+        }
+    </script>
+</body>
+</html>
